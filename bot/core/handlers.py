@@ -21,6 +21,9 @@ async def add_handlers():
         )
     )
     TgClient.bot.add_handler(
+        CallbackQueryHandler(search_cb, filters=regex("^sr "))
+    )
+    TgClient.bot.add_handler(
         MessageHandler(
             overlap,
             filters=command(BotCommands.OverlapCommand, case_sensitive=True)
