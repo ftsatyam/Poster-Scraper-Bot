@@ -23,6 +23,7 @@ from .anylist import (
     manga_command,
     animehelp_command,
 )
+from .modules.overlap import overlap, overlap_cb
 
 __all__ = [
     "add_sudo",
@@ -36,6 +37,8 @@ __all__ = [
     "get_packages_version",
     "log",
     "log_cb",
+    "overlap_cb",
+    "overlap",
     "ping",
     "poster",
     "remove_sudo",
