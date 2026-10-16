@@ -13,6 +13,7 @@ def get_bot_commands():
     "Start": "• Start the bot",
     "Poster": "• Fetch poster links from OTT(s) URL",
     "Bypass": "• Resolve direct links from supported DDL(s) hosts",
+    "Search": "• Find which OTT platforms stream a movie/series/show/anime",
     "Tmdb": "• Fetch movie/TV show posters/info from TMDB",
     "Imdb": "• Fetch detailed movie/TV information from IMDb",
     "Anime": "• Search AniList anime (e.g. Attack on Titan or MAL ID mal:5114)",
