@@ -2,10 +2,12 @@ from asyncio import to_thread
 from html import escape
 from time import time
 
+from pyrogram.enums import ButtonStyle
 from simplejustwatchapi import search as jw_search
 
 from .. import LOGGER
 from ..helper.ext_utils.bot_utils import new_task
+from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.message_utils import edit_message, send_message
 
 DEFAULT_REGION = "IN"
@@ -15,7 +17,8 @@ CACHE_MAX = 200
 MAX_TITLES = 3
 MAX_LEN = 3600
 ORDER = ("Stream", "Free", "Rent", "Buy")
-ICONS = {"Stream": "📺", "Free": "🆓", "Rent": "🎟", "Buy": "🛒"}
+ICONS = {"Stream": "◈", "Free": "✦", "Rent": "❖", "Buy": "✧"}
+TYPE_ICONS = {"MOVIE": "▣", "SHOW": "▦"}
 KINDS = {
     "FLATRATE": "Stream",
     "ADS": "Free",
@@ -77,7 +80,7 @@ def format_title(entry, expanded):
             f'• {escape(name)}: <a href="{escape(url, quote=True)}">Watch Here</a>'
         )
 
-    icon = "🎬" if "MOVIE" in entry["type"] else "📺"
+    icon = TYPE_ICONS["MOVIE"] if "MOVIE" in entry["type"] else TYPE_ICONS["SHOW"]
     year = f" ({entry['year']})" if entry["year"] else ""
     head = f"<b>{icon} {escape(entry['title'])}</b>{year}"
 
@@ -111,8 +114,21 @@ def build_text(query, region, data):
     return (
         header
         + "\n\n".join(blocks)
-        + "\n\n<blockquote>Data by JustWatch | Bot By ➤ @TheZake</blockquote>"
+        + "\n\n<blockquote>Bot By ➤ @TheZake</blockquote>"
     )
+
+
+def build_buttons():
+    buttons = ButtonMaker()
+    buttons.url_button(
+        "Developer", "https://t.me/TheZake", style=ButtonStyle.PRIMARY
+    )
+    buttons.url_button(
+        "⭐ Source Code",
+        "https://github.com/ImKrishana/Poster-Scraper-Bot",
+        style=ButtonStyle.SUCCESS,
+    )
+    return buttons.build_menu(2)
 
 
 @new_task
@@ -151,4 +167,4 @@ async def search(_, message):
             f"in <b>{region}</b>.",
         )
 
-    await edit_message(waiting, build_text(query, region, data))
+    await edit_message(waiting, build_text(query, region, data), build_buttons())
