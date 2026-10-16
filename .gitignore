@@ -1,8 +1,8 @@
-.venv/*
+.venv/
 config.py
 .netrc
 log.txt
 shortener.txt
-downloads/*
+downloads/
 __pycache__/
-*.pyc
+*.py[cod]
