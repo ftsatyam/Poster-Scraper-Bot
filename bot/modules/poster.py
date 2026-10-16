@@ -124,10 +124,11 @@ async def poster(_, message):
     )
 
     try:
-        async with AsyncSession(timeout=30) as client:
+        async with AsyncSession() as client:
             response = await client.get(
                 f"{api_url}/poster",
                 params={"url": url},
+                timeout=30,
                 headers={
                     "Authorization": f"Bearer {token}"
                 },
