@@ -68,8 +68,7 @@ def format_result(data: dict, platform: str, url: str) -> str:
 
     header += [
         "",
-        "<b>✺ Original URL:</b>",
-        f"<code>{escape(url)}</code>",
+        f'<b>✺ Original URL:</b> <a href="{escape(url, quote=True)}">Click Here</a>',
     ]
 
     return (
