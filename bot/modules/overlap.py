@@ -7,6 +7,7 @@ from aiofiles import open as aiopen
 from aiofiles.os import makedirs as aiomakedirs
 from niquests import AsyncSession
 from pyrogram.enums import ButtonStyle
+from pyrogram.types import Message
 
 from .. import DOWNLOAD_DIR, LOGGER
 from ..helper.ext_utils.bot_utils import new_task
