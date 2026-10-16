@@ -18,6 +18,7 @@ def get_bot_commands():
     "Anime": "• Search AniList anime (e.g. Attack on Titan or MAL ID mal:5114)",
     "Character": "• Search AniList characters (e.g. Satoru Gojo)",
     "Manga": "• Search AniList manga (e.g. Berserk)",
+    "Overlap": "• Overlay a logo on a poster",
     "AnimeHelp": "• Show AniList usage with examples",
     "Stats": "• Get bot statistics",
     "Help": "• Detailed help usage",
