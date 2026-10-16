@@ -6,7 +6,7 @@ from uuid import uuid4
 from aiofiles import open as aiopen
 from aiofiles.os import makedirs as aiomakedirs
 from niquests import AsyncSession
-from pyrogram.enums import ParseMode
+from pyrogram.enums import ButtonStyle
 
 from .. import DOWNLOAD_DIR, LOGGER
 from ..helper.ext_utils.bot_utils import new_task
@@ -154,14 +154,17 @@ async def download(client, uid, label, url, file_path):
     finally:
         await clean_target(tmp_path)
 
-
 def build_buttons(uid, user_id):
     buttons = ButtonMaker()
     for label, key in POS_BUTTONS:
         buttons.data_button(label, f"ov {user_id} pos {uid} {key}")
-    buttons.data_button("🗑️ Remove", f"ov {user_id} rem {uid}", "footer")
+    buttons.data_button(
+        "Cancel",
+        f"ov {user_id} rem {uid}",
+        "footer",
+        style=ButtonStyle.DANGER,
+    )
     return buttons.build_menu(3)
-
 
 @new_task
 async def overlap(_, message):
