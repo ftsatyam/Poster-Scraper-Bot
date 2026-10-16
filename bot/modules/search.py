@@ -15,6 +15,7 @@ CACHE_MAX = 200
 MAX_TITLES = 3
 MAX_LEN = 3600
 ORDER = ("Stream", "Free", "Rent", "Buy")
+ICONS = {"Stream": "📺", "Free": "🆓", "Rent": "🎟", "Buy": "🛒"}
 KINDS = {
     "FLATRATE": "Stream",
     "ADS": "Free",
@@ -64,8 +65,7 @@ async def get_results(query, region):
     CACHE[key] = (time(), data)
     return data
 
-
-def format_title(entry):
+def format_title(entry, expanded):
     grouped = {}
     seen = set()
     for kind, name, url in entry["offers"]:
@@ -76,17 +76,43 @@ def format_title(entry):
             f'• {escape(name)}: <a href="{escape(url, quote=True)}">Watch Here</a>'
         )
 
-    label = "Movie" if "MOVIE" in entry["type"] else "Series"
+    icon = "🎬" if "MOVIE" in entry["type"] else "📺"
     year = f" ({entry['year']})" if entry["year"] else ""
-    lines = [f"<b>🎬 {escape(entry['title'])}</b>{year} • {label}"]
+    head = f"<b>{icon} {escape(entry['title'])}</b>{year}"
 
+    body = []
     for kind in ORDER:
         if kind in grouped:
-            lines.append(f"\n<b>{kind}:</b>")
-            lines.extend(grouped[kind])
+            body.append(f"<b>{ICONS[kind]} {kind}:</b>")
+            body.extend(grouped[kind])
+    text = "\n".join(body)
 
-    return "\n".join(lines)
+    if expanded:
+        return f"{head}\n{text}"
+    return f"{head}\n<blockquote expandable>{text}</blockquote>"
 
+
+def build_text(query, region, data):
+    blocks = []
+    total = 0
+    for index, entry in enumerate(data[:MAX_TITLES]):
+        block = format_title(entry, index == 0)
+        if blocks and total + len(block) > MAX_LEN:
+            break
+        blocks.append(block)
+        total += len(block)
+
+    header = (
+        f"<b>✺ Search:</b> {escape(query)}\n"
+        f"<b>✺ Region:</b> {region}\n"
+        f"<b>✺ Results:</b> {len(blocks)} of {len(data)}\n\n"
+    )
+    return (
+        header
+        + "\n\n".join(blocks)
+        + "\n\n<blockquote>Data by JustWatch | Bot By ➤ @TheZake</blockquote>"
+            )
+    
 
 def build_text(query, region, data):
     blocks = []
