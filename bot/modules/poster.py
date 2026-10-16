@@ -66,19 +66,18 @@ def format_result(data: dict, platform: str, url: str) -> str:
             + "</blockquote>"
         )
 
-    header += [
-        "",
-        f'<b>✺ Original URL:</b> <a href="{escape(url, quote=True)}">Click Here</a>',
-    ]
+    posters = (
+        "\n".join(poster_lines)
+        if poster_lines
+        else "• No posters found."
+    )
 
     return (
         "\n".join(header)
         + "\n\n<b>⧉ Posters:</b>\n"
-        + (
-            "\n".join(poster_lines)
-            if poster_lines
-            else "• No posters found."
-        )
+        + posters
+        + "\n\n"
+        + f'<b>✺ Original URL:</b> <a href="{escape(url, quote=True)}">Click Here</a>'
         + "\n\n<blockquote>Bot By ➤ @TheZake</blockquote>"
     )
     
