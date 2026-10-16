@@ -10,7 +10,7 @@ from pytz import timezone
 from bot.version import get_version
 
 from .. import LOGGER, scheduler
-from ..core.config_manager import Config, BinConfig
+from ..core.config_manager import Config
 from ..core.tg_client import TgClient
 from ..helper.ext_utils.bot_utils import new_task
 from ..helper.ext_utils.db_handler import database
@@ -85,12 +85,7 @@ async def confirm_restart(_, query):
 
         await clean_all()
 
-        proc1 = await create_subprocess_exec(
-            "pkill",
-            "-9",
-            "-f",
-            f"gunicorn|{BinConfig.FFMPEG_NAME}|7z|split",
-        )
+        proc1 = await create_subprocess_exec("pkill", "-9", "-f", "gunicorn")
         proc2 = await create_subprocess_exec("python3", "update.py")
         await gather(proc1.wait(), proc2.wait())
 
