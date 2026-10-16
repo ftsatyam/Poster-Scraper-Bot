@@ -28,10 +28,10 @@ def format_value(value) -> str:
         value = dumps(value, ensure_ascii=False)
     return escape(str(value))
 
-
 def format_result(data: dict, platform: str, url: str) -> str:
     metadata = []
     poster_lines = []
+    meta_total = 0
 
     for key, value in data.items():
         if value is None or value == "" or key == "platform":
@@ -44,13 +44,29 @@ def format_result(data: dict, platform: str, url: str) -> str:
             )
             continue
 
-        metadata.append(
-            f"<b>{display_label(key)}:</b> {format_value(value)}"
+        text = str(value)
+        if isinstance(value, (dict, list)):
+            text = dumps(value, ensure_ascii=False)
+        if len(text) > 500:
+            text = text[:500] + "..."
+
+        line_len = len(display_label(key)) + len(text) + 3
+        if meta_total + line_len > 2000:
+            break
+        meta_total += line_len
+
+        metadata.append(f"<b>{display_label(key)}:</b> {escape(text)}")
+
+    header = [f"<b>✺ Source:</b> {escape(str(platform))}"]
+
+    if metadata:
+        header.append(
+            "<blockquote expandable>"
+            + "\n".join(metadata)
+            + "</blockquote>"
         )
 
-    header = [
-        f"<b>✺ Source:</b> {escape(str(platform))}",
-        *metadata,
+    header += [
         "",
         "<b>✺ Original URL:</b>",
         f"<code>{escape(url)}</code>",
@@ -66,8 +82,7 @@ def format_result(data: dict, platform: str, url: str) -> str:
         )
         + "\n\n<blockquote>Bot By ➤ @TheZake</blockquote>"
     )
-
-
+    
 @new_task
 async def poster(_, message):
     url = None
