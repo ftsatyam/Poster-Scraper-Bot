@@ -231,9 +231,8 @@ async def overlap(_, message):
         build_buttons(uid, user_id),
     )
 
-
 @new_task
-async def overlap_cb(client, query):
+async def overlap_cb(_, query):
     data = query.data.split()
     if len(data) < 4:
         return await query.answer()
@@ -253,7 +252,7 @@ async def overlap_cb(client, query):
 
     if action == "rem":
         await release(uid)
-        await query.answer("Removed")
+        await query.answer("Cancelled")
         return await delete_message(message, message.reply_to_message)
 
     if action != "pos":
@@ -283,15 +282,11 @@ async def overlap_cb(client, query):
             f"🥂 <b>Overlay:</b> {POS_NAME.get(pos, 'Center')} | "
             f"<b>Scale:</b> {entry['scale']}%"
         )
-        await client.send_photo(
-            message.chat.id,
-            out_path,
-            caption=caption,
-            parse_mode=ParseMode.HTML,
-            reply_to_message_id=(
-                message.reply_to_message.id if message.reply_to_message else None
-            ),
-        )
+        target = message.reply_to_message or message.chat.id
+        sent = await send_message(target, caption, photo=out_path)
+        if not isinstance(sent, Message):
+            raise RuntimeError(f"send_message returned {sent!r}")
+
         LOGGER.info(f"Overlap [{uid}] sent to chat {message.chat.id} (user {user_id})")
         await release(uid)
         await delete_message(message)
