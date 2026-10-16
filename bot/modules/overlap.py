@@ -10,7 +10,7 @@ from pyrogram.enums import ParseMode
 
 from .. import DOWNLOAD_DIR, LOGGER
 from ..helper.ext_utils.bot_utils import new_task
-from ..helper.ext_utils.files_utils import clean_download
+from ..helper.ext_utils.files_utils import clean_download, clean_target
 from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.message_utils import (
     delete_message,
@@ -29,6 +29,15 @@ EXPIRY_TASKS = set()
 STORE_TTL = 600
 MAX_BYTES = 15 * 1024 * 1024
 BASE_DIR = ospath.join(DOWNLOAD_DIR, "overlap")
+
+NON_IMAGE_TYPES = (
+    "text/",
+    "application/json",
+    "application/xml",
+    "application/javascript",
+    "video/",
+    "audio/",
+)
 
 POS_MAP = {
     "tl": ("left", "top"),
@@ -67,19 +76,15 @@ POS_BUTTONS = [
 ]
 
 
-async def release(uid, reason):
+async def release(uid):
     entry = OVER_STORE.pop(uid, None)
-    if not entry:
-        return
-    LOGGER.info(f"Overlap [{uid}] releasing session ({reason})")
-    await clean_download(entry["dir"])
+    if entry:
+        await clean_download(entry["dir"])
 
 
 async def expire(uid):
     await sleep(STORE_TTL)
-    if uid in OVER_STORE:
-        LOGGER.info(f"Overlap [{uid}] session timed out after {STORE_TTL}s")
-        await release(uid, "expired")
+    await release(uid)
 
 
 def schedule_expiry(uid):
@@ -92,6 +97,11 @@ def place_coords(pw, ph, lw, lh, pos):
     xs = {"left": 0, "center": (pw - lw) // 2, "right": pw - lw}
     ys = {"top": 0, "center": (ph - lh) // 2, "bottom": ph - lh}
     return xs[pos[0]], ys[pos[1]]
+
+
+def normalize_image(src, dst):
+    with Image.open(src) as im:
+        im.convert("RGBA").save(dst, "PNG")
 
 
 def merge_images(poster_path, logo_path, scale_percent, pos_key, out_path):
@@ -114,24 +124,35 @@ def merge_images(poster_path, logo_path, scale_percent, pos_key, out_path):
 
 
 async def download(client, uid, label, url, file_path):
+    tmp_path = f"{file_path}_tmp"
     try:
-        response = await client.get(url, timeout=20)
+        response = await client.get(url, timeout=20, allow_redirects=True)
         response.raise_for_status()
+
+        content_type = response.headers.get("content-type", "")
+        if content_type.startswith(NON_IMAGE_TYPES):
+            LOGGER.warning(
+                f"Overlap [{uid}] {label} is not an image ({content_type}): {url}"
+            )
+            return False
+
         content = response.content
         if len(content) > MAX_BYTES:
             LOGGER.warning(
-                f"Overlap [{uid}] {label} too large: {len(content)} bytes (limit {MAX_BYTES})"
+                f"Overlap [{uid}] {label} too large ({len(content)} bytes): {url}"
             )
             return False
-        async with aiopen(file_path, "wb") as f:
+
+        async with aiopen(tmp_path, "wb") as f:
             await f.write(content)
-        LOGGER.info(f"Overlap [{uid}] {label} downloaded: {len(content)} bytes")
+
+        await to_thread(normalize_image, tmp_path, file_path)
         return True
     except Exception as e:
-        LOGGER.error(
-            f"Overlap [{uid}] {label} download failed for {url}: {e}", exc_info=True
-        )
+        LOGGER.error(f"Overlap [{uid}] {label} failed for {url}: {e}")
         return False
+    finally:
+        await clean_target(tmp_path)
 
 
 def build_buttons(uid, user_id):
@@ -144,15 +165,11 @@ def build_buttons(uid, user_id):
 
 @new_task
 async def overlap(_, message):
-    user_id = message.from_user.id
-
     if Image is None:
-        LOGGER.error(f"Overlap: user {user_id} used command but Pillow is missing")
         return await send_message(message, "Pillow is not installed.")
 
     args = message.command
     if len(args) < 3:
-        LOGGER.info(f"Overlap: user {user_id} sent command with missing arguments")
         return await send_message(
             message,
             "<b>Format:</b>\n"
@@ -166,39 +183,33 @@ async def overlap(_, message):
         try:
             scale = int(args[3])
         except ValueError:
-            LOGGER.warning(
-                f"Overlap: user {user_id} sent invalid scale '{args[3]}', using 20"
-            )
+            scale = 20
     scale = min(max(scale, 1), 100)
 
     uid = uuid4().hex[:12]
-    LOGGER.info(f"Overlap [{uid}] started by user {user_id} with scale {scale}%")
-
+    user_id = message.from_user.id
     status = await send_message(message, "<i>Downloading images...</i>")
 
     folder = ospath.join(BASE_DIR, uid)
     try:
         await aiomakedirs(folder, exist_ok=True)
     except Exception as e:
-        LOGGER.error(
-            f"Overlap [{uid}] could not create folder {folder}: {e}", exc_info=True
-        )
+        LOGGER.error(f"Overlap [{uid}] could not create {folder}: {e}")
         return await edit_message(status, "<b>Failed to prepare workspace.</b>")
 
-    poster_path = ospath.join(folder, "poster")
-    logo_path = ospath.join(folder, "logo")
+    poster_path = ospath.join(folder, "poster.png")
+    logo_path = ospath.join(folder, "logo.png")
 
     async with AsyncSession() as client:
         poster_ok = await download(client, uid, "poster", poster_url, poster_path)
         logo_ok = await download(client, uid, "logo", logo_url, logo_path)
 
     if not poster_ok or not logo_ok:
-        LOGGER.warning(
-            f"Overlap [{uid}] aborted: poster_ok={poster_ok} logo_ok={logo_ok}"
-        )
         await clean_download(folder)
         return await edit_message(
-            status, "<b>Failed to download one or both images.</b>"
+            status,
+            "<b>Failed to download one or both images.</b>\n"
+            "Use direct image links (png, jpg, webp).",
         )
 
     OVER_STORE[uid] = {
@@ -210,7 +221,6 @@ async def overlap(_, message):
         "time": time(),
     }
     schedule_expiry(uid)
-    LOGGER.info(f"Overlap [{uid}] session ready, active sessions: {len(OVER_STORE)}")
 
     await edit_message(
         status,
@@ -231,18 +241,15 @@ async def overlap_cb(client, query):
     try:
         owner_id = int(data[1])
     except ValueError:
-        LOGGER.warning(f"Overlap: invalid callback data '{query.data}'")
         return await query.answer()
 
     if user_id != owner_id:
-        LOGGER.info(f"Overlap: user {user_id} tried to use buttons of user {owner_id}")
         return await query.answer("Not Yours!", show_alert=True)
 
     action, uid = data[2], data[3]
 
     if action == "rem":
-        LOGGER.info(f"Overlap [{uid}] removed by user {user_id}")
-        await release(uid, "removed")
+        await release(uid)
         await query.answer("Removed")
         return await delete_message(message, message.reply_to_message)
 
@@ -251,12 +258,10 @@ async def overlap_cb(client, query):
 
     entry = OVER_STORE.get(uid)
     if not entry:
-        LOGGER.info(f"Overlap [{uid}] button pressed after session ended")
         await query.answer("Expired", show_alert=True)
         return await edit_message(message, "<b>Session expired.</b>")
 
     pos = data[4] if len(data) >= 5 else "c"
-    LOGGER.info(f"Overlap [{uid}] merging at position '{pos}' for user {user_id}")
 
     await query.answer("Processing..")
     await edit_message(message, "<i>Processing...</i>")
@@ -271,8 +276,6 @@ async def overlap_cb(client, query):
             pos,
             out_path,
         )
-        LOGGER.info(f"Overlap [{uid}] merge complete, sending photo")
-
         caption = (
             f"🥂 <b>Overlay:</b> {POS_NAME.get(pos, 'Center')} | "
             f"<b>Scale:</b> {entry['scale']}%"
@@ -286,10 +289,10 @@ async def overlap_cb(client, query):
                 message.reply_to_message.id if message.reply_to_message else None
             ),
         )
-        LOGGER.info(f"Overlap [{uid}] photo sent to chat {message.chat.id}")
-        await release(uid, "completed")
+        LOGGER.info(f"Overlap [{uid}] sent to chat {message.chat.id} (user {user_id})")
+        await release(uid)
         await delete_message(message)
     except Exception as e:
         LOGGER.error(f"Overlap [{uid}] processing failed: {e}", exc_info=True)
-        await release(uid, "failed")
+        await release(uid)
         await edit_message(message, "<b>Failed to process image.</b>")
