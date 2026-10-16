@@ -111,12 +111,11 @@ async def _request_json(path, params=None):
         query_params = {**request_params, **auth_params}
         for attempt in range(3):
             try:
-                async with AsyncSession() as client:
+                async with AsyncSession(timeout=15) as client:
                     response = await client.get(
                         f"{base}{path}",
                         headers=headers,
                         params=query_params,
-                        timeout=15,
                     )
 
                 if response.status_code == 401:
