@@ -1,5 +1,5 @@
-aioshutil
 aiofiles
+aioshutil
 apscheduler
 cloudscraper
 fastapi
@@ -11,15 +11,16 @@ jinja2
 lxml
 markdown
 motor
+niquests
+Pillow
 psutil
 pymongo
+pycountry
 python-dotenv
 pytz
-pycountry
 telegraph
 tenacity
 tgcrypto
 uvicorn
 uvloop
 wzgram
-niquests
