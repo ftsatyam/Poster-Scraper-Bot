@@ -12,6 +12,7 @@ class BotCommands:
         "Anime": ["anime", "anilist"],
         "Character": ["character"],
         "Manga": ["manga"],
+        "Overlap": ["overlap", "ov"],
         "AnimeHelp": ["animehelp"],
         "Help": ["help", "h"],
         "Stats": ["stats", "st"],
