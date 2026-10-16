@@ -1,6 +1,7 @@
 from asyncio import to_thread
 from html import escape
 from time import time
+from uuid import uuid4
 
 from pyrogram.enums import ButtonStyle
 from simplejustwatchapi import search as jw_search
@@ -8,13 +9,20 @@ from simplejustwatchapi import search as jw_search
 from .. import LOGGER
 from ..helper.ext_utils.bot_utils import new_task
 from ..helper.telegram_helper.button_build import ButtonMaker
-from ..helper.telegram_helper.message_utils import edit_message, send_message
+from ..helper.telegram_helper.message_utils import (
+    edit_message,
+    edit_reply_markup,
+    send_message,
+)
 
 DEFAULT_REGION = "IN"
 CACHE = {}
 CACHE_TTL = 6 * 3600
 CACHE_MAX = 200
-MAX_TITLES = 7
+STORE = {}
+STORE_TTL = 3600
+STORE_MAX = 500
+MAX_TITLES = 3
 MAX_LEN = 3600
 ORDER = ("Stream", "Free", "Rent", "Buy")
 ICONS = {"Stream": "◈", "Free": "✦", "Rent": "❖", "Buy": "✧"}
@@ -96,39 +104,66 @@ def format_title(entry, expanded):
     return f"{head}\n<blockquote expandable>{text}</blockquote>"
 
 
-def build_text(query, region, data):
-    blocks = []
+def build_pages(data):
+    pages = []
+    current = []
     total = 0
-    for index, entry in enumerate(data[:MAX_TITLES]):
-        block = format_title(entry, index == 0)
-        if blocks and total + len(block) > MAX_LEN:
-            break
-        blocks.append(block)
-        total += len(block)
+    for entry in data:
+        size = len(format_title(entry, True))
+        if current and (len(current) >= MAX_TITLES or total + size > MAX_LEN):
+            pages.append(current)
+            current = []
+            total = 0
+        current.append(entry)
+        total += size
+    if current:
+        pages.append(current)
+    return pages
+
+
+def build_text(session, page):
+    pages = session["pages"]
+    blocks = [format_title(e, i == 0) for i, e in enumerate(pages[page])]
 
     header = (
-        f"<b>✺ Search:</b> {escape(query)}\n"
-        f"<b>✺ Region:</b> {region}\n"
-        f"<b>✺ Results:</b> {len(blocks)} of {len(data)}\n\n"
+        f"<b>✺ Search:</b> {escape(session['query'])}\n"
+        f"<b>✺ Region:</b> {session['region']}\n"
+        f"<b>✺ Results:</b> {session['count']}\n"
     )
+    if len(pages) > 1:
+        header += f"<b>✺ Page:</b> {page + 1}/{len(pages)}\n"
+
     return (
         header
+        + "\n"
         + "\n\n".join(blocks)
-        + "\n\n<blockquote>Bot By ➤ @TheZake</blockquote>"
+        + "\n\n<blockquote>Data by JustWatch | Bot By ➤ @TheZake</blockquote>"
     )
 
 
-def build_buttons():
+def build_buttons(user_id, uid, page, total):
     buttons = ButtonMaker()
-    buttons.url_button(
-        "Developer", "https://t.me/TheZake", style=ButtonStyle.PRIMARY
-    )
+    if total > 1:
+        if page > 0:
+            buttons.data_button("◀ Prev", f"sr {user_id} {uid} {page - 1}", "header")
+        buttons.data_button(f"{page + 1}/{total}", f"sr {user_id} {uid} noop", "header")
+        if page < total - 1:
+            buttons.data_button("Next ▶", f"sr {user_id} {uid} {page + 1}", "header")
+    buttons.url_button("Developer", "https://t.me/TheZake", style=ButtonStyle.PRIMARY)
     buttons.url_button(
         "⭐ Source Code",
         "https://github.com/ImKrishana/Poster-Scraper-Bot",
         style=ButtonStyle.SUCCESS,
     )
-    return buttons.build_menu(2)
+    return buttons.build_menu(2, 3)
+
+
+def clean_store():
+    now = time()
+    for key in [k for k, v in STORE.items() if now - v["time"] > STORE_TTL]:
+        STORE.pop(key, None)
+    while len(STORE) >= STORE_MAX:
+        STORE.pop(next(iter(STORE)), None)
 
 
 @new_task
@@ -167,4 +202,63 @@ async def search(_, message):
             f"in <b>{region}</b>.",
         )
 
-    await edit_message(waiting, build_text(query, region, data), build_buttons())
+    clean_store()
+    uid = uuid4().hex[:12]
+    user_id = message.from_user.id
+    session = {
+        "query": query,
+        "region": region,
+        "pages": build_pages(data),
+        "count": len(data),
+        "user_id": user_id,
+        "time": time(),
+    }
+    STORE[uid] = session
+
+    await edit_message(
+        waiting,
+        build_text(session, 0),
+        build_buttons(user_id, uid, 0, len(session["pages"])),
+    )
+
+
+@new_task
+async def search_cb(_, query):
+    data = query.data.split()
+    if len(data) < 4:
+        return await query.answer()
+
+    message = query.message
+
+    try:
+        owner_id = int(data[1])
+    except ValueError:
+        return await query.answer()
+
+    if query.from_user.id != owner_id:
+        return await query.answer("Not Yours!", show_alert=True)
+
+    uid, action = data[2], data[3]
+    if action == "noop":
+        return await query.answer()
+
+    session = STORE.get(uid)
+    if not session or time() - session["time"] > STORE_TTL:
+        STORE.pop(uid, None)
+        await query.answer("Expired, search again.", show_alert=True)
+        return await edit_reply_markup(message, build_buttons(owner_id, uid, 0, 1))
+
+    try:
+        page = int(action)
+    except ValueError:
+        return await query.answer()
+
+    total = len(session["pages"])
+    page = min(max(page, 0), total - 1)
+
+    await query.answer()
+    await edit_message(
+        message,
+        build_text(session, page),
+        build_buttons(owner_id, uid, page, total),
+    )
