@@ -9,7 +9,7 @@ from pytz import timezone
 
 from bot.version import get_version
 
-from .. import LOGGER, intervals, scheduler
+from .. import LOGGER, scheduler
 from ..core.config_manager import Config, BinConfig
 from ..core.tg_client import TgClient
 from ..helper.ext_utils.bot_utils import new_task
@@ -75,17 +75,16 @@ async def confirm_restart(_, query):
     message = query.message
     reply_to = message.reply_to_message
     await delete_message(message)
+
     if data[1] == "confirm":
-        intervals["stopAll"] = True
         restart_message = await send_message(reply_to, "<i>Restarting...</i>")
-        await delete_message(message)
         await TgClient.stop()
+
         if scheduler.running:
             scheduler.shutdown(wait=False)
-        if st := intervals["status"]:
-            for intvl in list(st.values()):
-                intvl.cancel()
+
         await clean_all()
+
         proc1 = await create_subprocess_exec(
             "pkill",
             "-9",
@@ -94,8 +93,10 @@ async def confirm_restart(_, query):
         )
         proc2 = await create_subprocess_exec("python3", "update.py")
         await gather(proc1.wait(), proc2.wait())
+
         async with aiopen(".restartmsg", "w") as f:
             await f.write(f"{restart_message.chat.id}\n{restart_message.id}\n")
+
         osexecl(executable, executable, "-m", "bot")
     else:
         await delete_message(message, reply_to)
