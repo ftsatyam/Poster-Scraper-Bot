@@ -6,6 +6,7 @@ class BotCommands:
     _static_commands = {
         "Ping": ["ping"],
         "Poster": ["ott", "otts"],
+        "Search": ["search"],
         "Bypass": ["bypass", "b"],
         "Tmdb": ["poster", "p", "tmdb"],
         "Imdb": ["imdb"],
