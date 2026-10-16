@@ -14,6 +14,7 @@ from .restart import (
 from .poster import poster
 from .tmdb import tmdb
 from .imdb import imdb_search, imdb_callback
+from .search import search
 from .anylist import (
     anime_command,
     anilist_callback,
@@ -42,6 +43,7 @@ __all__ = [
     "unauthorize",
     "broadcast",
     "bypass",
+    "search",
     "confirm_restart",
     "restart_bot",
     "restart_notification",
