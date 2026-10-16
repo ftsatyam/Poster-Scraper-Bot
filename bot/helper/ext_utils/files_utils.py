@@ -10,6 +10,25 @@ async def clean_all():
     await (await create_subprocess_exec("rm", "-rf", DOWNLOAD_DIR)).wait()
     await aiomakedirs(DOWNLOAD_DIR, exist_ok=True)
 
+async def clean_download(opath):
+    if await aiopath.exists(opath):
+        LOGGER.info(f"Cleaning Download: {opath}")
+        try:
+            await aiormtree(opath, ignore_errors=True)
+        except Exception as e:
+            LOGGER.error(str(e))
+
+async def clean_target(opath):
+    if await aiopath.exists(opath):
+        LOGGER.info(f"Cleaning Target: {opath}")
+        try:
+            if await aiopath.isdir(opath):
+                await aiormtree(opath, ignore_errors=True)
+            else:
+                await remove(opath)
+        except Exception as e:
+            LOGGER.error(str(e))
+
 async def check_storage_threshold(size, threshold, io_task=False, alloc=False):
     free = (await sync_to_async(disk_usage, DOWNLOAD_DIR)).free
     return free >= (threshold + (size * (2 if io_task else 1) if not alloc else 0))
