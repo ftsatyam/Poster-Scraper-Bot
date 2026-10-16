@@ -15,6 +15,13 @@ from .tg_client import TgClient
 async def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
+            search,
+            filters=command(BotCommands.SearchCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             overlap,
             filters=command(BotCommands.OverlapCommand, case_sensitive=True)
             & CustomFilters.authorized,
