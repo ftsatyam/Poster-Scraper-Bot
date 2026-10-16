@@ -15,6 +15,16 @@ from .tg_client import TgClient
 async def add_handlers():
     TgClient.bot.add_handler(
         MessageHandler(
+            overlap,
+            filters=command(BotCommands.OverlapCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(overlap_cb, filters=regex("^ov "))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             send_bot_settings,
             filters=command(BotCommands.BotSetCommand, case_sensitive=True)
             & CustomFilters.sudo,
