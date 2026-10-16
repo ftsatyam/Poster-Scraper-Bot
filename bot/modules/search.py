@@ -65,6 +65,7 @@ async def get_results(query, region):
     CACHE[key] = (time(), data)
     return data
 
+
 def format_title(entry, expanded):
     grouped = {}
     seen = set()
@@ -109,23 +110,6 @@ def build_text(query, region, data):
     )
     return (
         header
-        + "\n\n".join(blocks)
-        + "\n\n<blockquote>Data by JustWatch | Bot By ➤ @TheZake</blockquote>"
-            )
-    
-
-def build_text(query, region, data):
-    blocks = []
-    total = 0
-    for entry in data[:MAX_TITLES]:
-        block = format_title(entry)
-        if blocks and total + len(block) > MAX_LEN:
-            break
-        blocks.append(block)
-        total += len(block)
-
-    return (
-        f"<b>✺ Search:</b> {escape(query)} | <b>Region:</b> {region}\n\n"
         + "\n\n".join(blocks)
         + "\n\n<blockquote>Data by JustWatch | Bot By ➤ @TheZake</blockquote>"
     )
