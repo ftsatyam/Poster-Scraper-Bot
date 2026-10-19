@@ -43,8 +43,17 @@ handler_dict = {}
 DEFAULT_VALUES = {
     "UPSTREAM_BRANCH": "master",
 }
+OWNER_ONLY_KEYS = {
+    "BOT_TOKEN",
+    "DATABASE_URL",
+    "TELEGRAM_HASH",
+    "TELEGRAM_API",
+    "UPSTREAM_BRANCH",
+    "UPSTREAM_REPO",
+    "USER_SESSION_STRING",
+}
 
-async def get_buttons(key=None, edit_type=None, edit_mode=False):
+async def get_buttons(key=None, edit_type=None, edit_mode=False, hide_value=False):
     buttons = ButtonMaker()
     if key is None:
         buttons.data_button("Config Variables", "botset var", style=ButtonStyle.PRIMARY)
@@ -68,7 +77,8 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
                 "TG_PROXY",
             ]:
                 msg += "Restart required for this edit to take effect! You will not see the changes in bot vars, the edit will be in database only!\n\n"
-            msg += f"Send a valid value for {key}. Current value is '{Config.get(key)}'. Timeout: 60 sec"
+            current = "Hidden" if hide_value else Config.get(key)
+            msg += f"Send a valid value for {key}. Current value is '{current}'. Timeout: 60 sec"
     elif key == "var":
         conf_dict = Config.get_all()
         for k in list(conf_dict.keys())[start : 10 + start]:
@@ -118,8 +128,8 @@ async def get_buttons(key=None, edit_type=None, edit_mode=False):
     return msg, buttons.build_menu(1 if key is None else 2)
 
 
-async def update_buttons(message, key=None, edit_type=None, edit_mode=False):
-    msg, button = await get_buttons(key, edit_type, edit_mode)
+async def update_buttons(message, key=None, edit_type=None, edit_mode=False, hide_value=False):
+    msg, button = await get_buttons(key, edit_type, edit_mode, hide_value)
     await edit_message(message, msg, button)
 
 @new_task
@@ -307,21 +317,15 @@ async def edit_bot_settings(client, query):
             rfunc = partial(update_buttons, message, data[1])
             await event_handler(client, query, pfunc, rfunc, True)
     elif data[1] == "botvar" and state == "edit":
+        hide_value = (
+            data[2] in OWNER_ONLY_KEYS and query.from_user.id != Config.OWNER_ID
+        )
         await query.answer()
-        await update_buttons(message, data[2], data[1])
+        await update_buttons(message, data[2], data[1], hide_value=hide_value)
         pfunc = partial(edit_variable, pre_message=message, key=data[2])
         rfunc = partial(update_buttons, message, "var")
         await event_handler(client, query, pfunc, rfunc)
     elif data[1] == "botvar" and state == "view":
-        OWNER_ONLY_KEYS = {
-            "BOT_TOKEN",
-            "DATABASE_URL",
-            "TELEGRAM_HASH",
-            "TELEGRAM_API",
-            "UPSTREAM_BRANCH",
-            "UPSTREAM_REPO",
-            "USER_SESSION_STRING",
-        }
         if data[2] in OWNER_ONLY_KEYS and query.from_user.id != Config.OWNER_ID:
             await query.answer("⛔ Only the owner can view this setting.", show_alert=True)
             return
