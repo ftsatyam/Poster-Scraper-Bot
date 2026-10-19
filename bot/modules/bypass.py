@@ -1,5 +1,4 @@
 from html import escape
-from json import dumps
 from re import search as re_search
 from urllib.parse import urlparse
 
@@ -9,6 +8,7 @@ from pyrogram.enums import ButtonStyle
 from .. import LOGGER
 from ..core.config_manager import Config
 from ..helper.ext_utils.bot_utils import new_task
+from ..helper.ext_utils.bypass_formatter import format_bypass_result
 from ..helper.telegram_helper.button_build import ButtonMaker
 from ..helper.telegram_helper.message_utils import send_message
 
@@ -18,40 +18,6 @@ def extract_url_from_text(text: str) -> str | None:
         return None
     match = re_search(r"https?://\S+", text)
     return match.group(0) if match else None
-
-
-def format_label(key: str) -> str:
-    return key.replace("_", " ").strip().title()
-
-
-def format_value(value) -> str:
-    if isinstance(value, (dict, list)):
-        value = dumps(value, ensure_ascii=False)
-    return escape(str(value))
-
-
-def format_bypass_result(data: dict, url: str) -> str:
-    direct_link = data.get("direct_link")
-    lines = ["<b>✺ Direct Link:</b>"]
-
-    if isinstance(direct_link, str) and direct_link:
-        lines.append(
-            f'<a href="{escape(direct_link, quote=True)}">Click Here</a>'
-        )
-    else:
-        lines.append("<code>No direct link found.</code>")
-
-    details = []
-    for key, value in data.items():
-        if key in {"url", "direct_link", "headers", "credits"} or value in (None, ""):
-            continue
-        details.append(f"<b>{format_label(key)}:</b> {format_value(value)}")
-
-    if details:
-        lines.extend(["", *details])
-
-    lines.extend(["", "<b>✺ Original URL:</b>", f"<code>{escape(url)}</code>"])
-    return "\n".join(lines)
 
 
 @new_task
