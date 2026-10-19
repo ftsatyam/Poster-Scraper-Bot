@@ -41,7 +41,7 @@ start = 0
 state = "view"
 handler_dict = {}
 DEFAULT_VALUES = {
-    "UPSTREAM_BRANCH": "master",
+    "UPSTREAM_BRANCH": "main",
 }
 OWNER_ONLY_KEYS = {
     "BOT_TOKEN",
