@@ -10,7 +10,7 @@ from ..core.config_manager import Config
 from ..helper.ext_utils.bot_utils import new_task
 from ..helper.ext_utils.bypass_formatter import format_bypass_result
 from ..helper.telegram_helper.button_build import ButtonMaker
-from ..helper.telegram_helper.message_utils import send_message
+from ..helper.telegram_helper.message_utils import edit_message, send_message
 
 
 def extract_url_from_text(text: str) -> str | None:
@@ -102,18 +102,12 @@ async def bypass(_, message):
         "https://github.com/ImKrishana/Poster-Scraper-Bot",
         style=ButtonStyle.SUCCESS,
     )
+    markup = buttons.build_menu(2)
 
-    if waiting:
-        try:
-            return await waiting.edit(
-                text=text,
-                reply_markup=buttons.build_menu(2),
-            )
-        except Exception:
-            pass
+    if waiting and not isinstance(waiting, str):
+        result = await edit_message(waiting, text, markup)
+        if result and not isinstance(result, str):
+            return result
 
-    return await send_message(
-        message,
-        text,
-        reply_markup=buttons.build_menu(2),
-    )
+    return await send_message(message, text, markup)
+    
